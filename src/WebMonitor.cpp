@@ -67,9 +67,13 @@ void WebMonitor::begin() {
                 config::kApSsid);
   Serial.printf("[WiFi] IP: %s\n", apIp.toString().c_str());
 
-  dnsServer_.setErrorReplyCode(DNSReplyCode::NoError);
-  dnsServer_.start(kDnsPort, "*", apIp);
-  Serial.println("[DNS] captive portal DNS started");
+  if (config::kEnableCaptiveDnsWildcard) {
+    dnsServer_.setErrorReplyCode(DNSReplyCode::NoError);
+    dnsServer_.start(kDnsPort, "*", apIp);
+    Serial.println("[DNS] captive portal wildcard DNS started");
+  } else {
+    Serial.println("[DNS] wildcard DNS disabled for online map mode");
+  }
 
   server_.on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
     request->send(200, "text/html; charset=utf-8", htmlPage());
@@ -112,7 +116,9 @@ void WebMonitor::begin() {
 }
 
 void WebMonitor::update() {
-  dnsServer_.processNextRequest();
+  if (config::kEnableCaptiveDnsWildcard) {
+    dnsServer_.processNextRequest();
+  }
 }
 
 String WebMonitor::jsonStatus() const {

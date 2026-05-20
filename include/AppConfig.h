@@ -55,6 +55,7 @@ static constexpr uint32_t kSdLogIntervalMs = 1000;
 
 static constexpr const char* kApSsid = "XIAO_BOAT_MONITOR";
 static constexpr const char* kApPassword = "12345678";
+static constexpr bool kEnableCaptiveDnsWildcard = false;
 
 static constexpr uint32_t kSerialReportIntervalMs = 1000;
 static constexpr uint32_t kWebRefreshIntervalMs = 1000;
