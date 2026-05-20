@@ -9,23 +9,14 @@ ImuManager::ImuManager() : bno_(config::kBnoRstPin) {}
 
 namespace {
 
-bool scanI2cAddress(uint8_t address) {
-  Wire.beginTransmission(address);
-  return Wire.endTransmission() == 0;
+sh2_SensorId_t orientationReportType() {
+  return config::kBnoUseArvrStabilizedReport ? SH2_ARVR_STABILIZED_RV
+                                             : SH2_GAME_ROTATION_VECTOR;
 }
 
-void printI2cScanSummary() {
-  bool foundAny = false;
-  Serial.println("[BNO08X] I2C scan:");
-  for (uint8_t address = 1; address < 0x78; ++address) {
-    if (scanI2cAddress(address)) {
-      foundAny = true;
-      Serial.printf("  found 0x%02X\n", address);
-    }
-  }
-  if (!foundAny) {
-    Serial.println("  no I2C devices found");
-  }
+const char* orientationReportName() {
+  return config::kBnoUseArvrStabilizedReport ? "ARVR_STABILIZED_RV"
+                                             : "GAME_ROTATION_VECTOR";
 }
 
 }  // namespace
@@ -43,8 +34,9 @@ void ImuManager::update() {
       status_.lastResetMs = millis();
       status_.initialized = enableReports();
       if (!status_.initialized) {
-        ++status_.reportFailCount;
-        status_.lastReportFailMs = status_.lastResetMs;
+        markReportFailure(status_.lastResetMs);
+      } else {
+        markInitSuccess(status_.lastResetMs);
       }
     }
 
@@ -86,52 +78,60 @@ bool ImuManager::initialize(const char* reason) {
   status_.activeAddress = 0;
   status_.lastEventMs = 0;
   status_.updateHz = 0.0f;
+  status_.reportType = orientationReportName();
 
   hardReset();
   configureI2cBus();
-  printI2cScanSummary();
 
-  const uint8_t candidateAddresses[] = {
-      config::kBnoAddressPrimary,
-      config::kBnoAddressAlternate,
-  };
-
-  for (uint8_t address : candidateAddresses) {
-    Serial.printf("[BNO08X] try 0x%02X\n", address);
-    if (bno_.begin_I2C(address, &Wire)) {
-      status_.activeAddress = address;
-      status_.initialized = enableReports();
-      Serial.printf("[BNO08X] %s at 0x%02X\n",
-                    status_.initialized ? "ready" : "report setup failed",
-                    address);
-      if (status_.initialized) {
-        status_.lastEventMs = millis();
-        return true;
-      }
+  const uint8_t address = config::kBnoI2cAddress;
+  Serial.printf("[BNO08X] try fixed address 0x%02X\n", address);
+  if (bno_.begin_I2C(address, &Wire)) {
+    status_.activeAddress = address;
+    status_.initialized = enableReports();
+    Serial.printf("[BNO08X] %s at 0x%02X report=%s\n",
+                  status_.initialized ? "ready" : "report setup failed",
+                  address, status_.reportType);
+    if (status_.initialized) {
+      const uint32_t now = millis();
+      status_.lastEventMs = now;
+      markInitSuccess(now);
+      return true;
     }
+    markReportFailure(millis());
+    return false;
   }
 
   Serial.println("[BNO08X] not found; system continues without IMU");
-  ++status_.initFailCount;
-  status_.lastInitFailMs = millis();
+  markInitFailure(millis());
   return false;
 }
 
 bool ImuManager::enableReports() {
-  bool ok = true;
-  ok &= bno_.enableReport(SH2_GAME_ROTATION_VECTOR, config::kBnoReportIntervalUs);
-  return ok;
+  status_.reportType = orientationReportName();
+  return bno_.enableReport(orientationReportType(), config::kBnoReportIntervalUs);
 }
 
 void ImuManager::handleSensorEvent(const sh2_SensorValue_t& event) {
-  if (event.sensorId != SH2_GAME_ROTATION_VECTOR) {
-    return;
+  switch (event.sensorId) {
+    case SH2_GAME_ROTATION_VECTOR:
+      updateEulerFromQuaternion(event.un.gameRotationVector.i,
+                                event.un.gameRotationVector.j,
+                                event.un.gameRotationVector.k,
+                                event.un.gameRotationVector.real);
+      break;
+
+    case SH2_ARVR_STABILIZED_RV:
+      updateEulerFromQuaternion(event.un.arvrStabilizedRV.i,
+                                event.un.arvrStabilizedRV.j,
+                                event.un.arvrStabilizedRV.k,
+                                event.un.arvrStabilizedRV.real);
+      break;
+
+    default:
+      return;
   }
 
-  updateEulerFromQuaternion(event.un.gameRotationVector.i,
-                            event.un.gameRotationVector.j,
-                            event.un.gameRotationVector.k,
-                            event.un.gameRotationVector.real);
+  status_.accuracy = event.status;
   status_.hasOrientation = true;
   status_.lastEventMs = millis();
   ++status_.eventCount;
@@ -164,14 +164,17 @@ void ImuManager::recoverIfNeeded() {
         now - status_.lastEventMs > config::kBnoNoDataTimeoutMs) {
       Serial.println("[BNO08X] timeout; reinitializing");
       ++status_.timeoutCount;
+      ++status_.consecutiveFailCount;
       status_.lastTimeoutMs = now;
+      status_.nextRetryDelayMs = retryDelayMs();
       lastRetryMs_ = now;
       initialize("sensor timeout");
     }
     return;
   }
 
-  if (now - lastRetryMs_ >= config::kBnoRetryIntervalMs) {
+  status_.nextRetryDelayMs = retryDelayMs();
+  if (now - lastRetryMs_ >= status_.nextRetryDelayMs) {
     lastRetryMs_ = now;
     initialize("retry");
   }
@@ -193,4 +196,40 @@ void ImuManager::sampleUpdateHz(uint32_t now) {
   status_.updateHz = elapsed > 0 ? (events * 1000.0f) / elapsed : 0.0f;
   lastHzSampleMs_ = now;
   eventsAtLastHzSample_ = status_.eventCount;
+}
+
+uint32_t ImuManager::retryDelayMs() const {
+  if (status_.consecutiveFailCount <= 2) {
+    return config::kBnoRetryDelayFastMs;
+  }
+  if (status_.consecutiveFailCount <= 5) {
+    return config::kBnoRetryDelayMediumMs;
+  }
+  if (status_.consecutiveFailCount <= 10) {
+    return config::kBnoRetryDelaySlowMs;
+  }
+  return config::kBnoRetryDelayMaxMs;
+}
+
+void ImuManager::markInitSuccess(uint32_t now) {
+  if (status_.consecutiveFailCount > 0) {
+    ++status_.recoveryCount;
+    status_.lastRecoveryMs = now;
+  }
+  status_.consecutiveFailCount = 0;
+  status_.nextRetryDelayMs = retryDelayMs();
+}
+
+void ImuManager::markInitFailure(uint32_t now) {
+  ++status_.initFailCount;
+  ++status_.consecutiveFailCount;
+  status_.lastInitFailMs = now;
+  status_.nextRetryDelayMs = retryDelayMs();
+}
+
+void ImuManager::markReportFailure(uint32_t now) {
+  ++status_.reportFailCount;
+  ++status_.consecutiveFailCount;
+  status_.lastReportFailMs = now;
+  status_.nextRetryDelayMs = retryDelayMs();
 }

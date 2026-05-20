@@ -24,6 +24,8 @@ struct ImuStatus {
   float pitchDeg = 0.0f;
   float yawDeg = 0.0f;
   float updateHz = 0.0f;
+  uint8_t accuracy = 0;
+  const char* reportType = "unknown";
   uint32_t lastEventMs = 0;
   uint32_t eventCount = 0;
   uint32_t resetCount = 0;
@@ -34,6 +36,10 @@ struct ImuStatus {
   uint32_t lastTimeoutMs = 0;
   uint32_t lastInitFailMs = 0;
   uint32_t lastReportFailMs = 0;
+  uint32_t consecutiveFailCount = 0;
+  uint32_t nextRetryDelayMs = 0;
+  uint32_t recoveryCount = 0;
+  uint32_t lastRecoveryMs = 0;
 };
 
 class ImuManager {
@@ -53,6 +59,10 @@ class ImuManager {
   void updateEulerFromQuaternion(float i, float j, float k, float real);
   void recoverIfNeeded();
   void sampleUpdateHz(uint32_t now);
+  uint32_t retryDelayMs() const;
+  void markInitSuccess(uint32_t now);
+  void markInitFailure(uint32_t now);
+  void markReportFailure(uint32_t now);
 
   Adafruit_BNO08x bno_;
   sh2_SensorValue_t sensorValue_ = {};

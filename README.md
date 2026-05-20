@@ -43,6 +43,7 @@ framework = arduino
 | BNO08X SCL | D5 / GPIO6 |
 | BNO08X INT | D3 / GPIO4 |
 | BNO08X RST | D2 / GPIO3 |
+| BNO08X I2C address | 0x4A fixed |
 | GNSS MCU RX | GPIO1 |
 | GNSS MCU TX | GPIO0 |
 | SD SCK | GPIO7 |
@@ -76,6 +77,20 @@ GPIO21 ------------------ CS
 
 GNSSモジュールの電源電圧は使用モジュールの仕様に合わせてください。
 
+## BNO08X設定メモ
+
+- I2Cアドレスは `0x4A` 固定です。
+- 姿勢レポートの初期設定は `SH2_GAME_ROTATION_VECTOR` です。
+- `AppConfig.h` の `kBnoUseArvrStabilizedReport` を `true` にすると `SH2_ARVR_STABILIZED_RV` に切り替えられます。
+- BNO08X未応答時は段階的バックオフで再初期化します。
+
+```text
+1-2回目: 2秒
+3-5回目: 5秒
+6-10回目: 10秒
+11回目以降: 30秒
+```
+
 ## WiFi接続方法
 
 XIAO ESP32S3 Senseは起動後、以下のアクセスポイントを作成します。
@@ -99,6 +114,7 @@ http://192.168.4.1/
 
 - GNSS: Fix、衛星数、緯度、経度、速度、進行方向、HDOP
 - BNO08X: Roll、Pitch、Yaw、UpdateHz
+- BNO08X diagnostics: report type、accuracy、reset/retry/recovery counts
 - SYSTEM: millis、free heap、WiFi接続数、loop周期
 - SD Log: mount状態、ファイル名、書き込み行数、エラー数
 - Satellites: 衛星システム、ID、使用中、CNO、仰角、方位角
@@ -140,12 +156,18 @@ GET /api/status
     "pitch": 0.00,
     "yaw": 0.00,
     "updateHz": 10.0,
+    "accuracy": 3,
+    "reportType": "GAME_ROTATION_VECTOR",
     "resetCount": 0,
     "timeoutCount": 0,
     "initFailCount": 0,
     "reportFailCount": 0,
+    "consecutiveFailCount": 0,
+    "nextRetryDelayMs": 2000,
+    "recoveryCount": 0,
     "lastResetAgeMs": 0,
-    "lastTimeoutAgeMs": 0
+    "lastTimeoutAgeMs": 0,
+    "lastRecoveryAgeMs": 0
   },
   "system": {
     "millis": 123456,
@@ -183,7 +205,7 @@ SDカードがマウントできた場合、起動ごとに未使用のファイ
 CSVの先頭にはフォーマットバージョンを記録します。
 
 ```text
-# log_format_version,1
+# log_format_version,2
 # project,XIAO ESP32S3 Sense GNSS BNO08X Web Monitor
 # time/system,gnss,bno08x,imu_diag,future_control
 ```
@@ -198,6 +220,8 @@ gnss_has_course,gnss_course_deg,gnss_has_hdop,gnss_hdop,
 bno_initialized,bno_has_orientation,bno_roll_deg,bno_pitch_deg,
 bno_yaw_deg,bno_update_hz,
 bno_reset_count,bno_timeout_count,bno_init_fail_count,bno_report_fail_count,
+bno_accuracy_status,bno_report_type,bno_consecutive_fail,
+bno_next_retry_delay_ms,bno_recovery_count,
 system_heap,system_loop_hz,system_wifi_clients,
 control_state,control_target_lat,control_target_lon,control_error
 ```
@@ -222,6 +246,15 @@ Roll: 0.00
 Pitch: 0.00
 Yaw: 0.00
 UpdateHz: 10.0
+Accuracy: 3
+ReportType: GAME_ROTATION_VECTOR
+ResetCount: 0
+TimeoutCount: 0
+InitFailCount: 0
+ReportFailCount: 0
+ConsecutiveFail: 0
+NextRetryDelayMs: 2000
+RecoveryCount: 0
 
 SYSTEM:
 Heap: 200000

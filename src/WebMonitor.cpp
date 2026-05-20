@@ -127,10 +127,17 @@ String WebMonitor::jsonStatus() const {
   appendJsonUInt(json, "timeoutCount", i.timeoutCount);
   appendJsonUInt(json, "initFailCount", i.initFailCount);
   appendJsonUInt(json, "reportFailCount", i.reportFailCount);
+  appendJsonUInt(json, "accuracy", i.accuracy);
+  appendJsonString(json, "reportType", i.reportType);
+  appendJsonUInt(json, "consecutiveFailCount", i.consecutiveFailCount);
+  appendJsonUInt(json, "nextRetryDelayMs", i.nextRetryDelayMs);
+  appendJsonUInt(json, "recoveryCount", i.recoveryCount);
   appendJsonUInt(json, "lastResetAgeMs",
                  i.lastResetMs > 0 ? millis() - i.lastResetMs : 0);
   appendJsonUInt(json, "lastTimeoutAgeMs",
                  i.lastTimeoutMs > 0 ? millis() - i.lastTimeoutMs : 0);
+  appendJsonUInt(json, "lastRecoveryAgeMs",
+                 i.lastRecoveryMs > 0 ? millis() - i.lastRecoveryMs : 0);
   appendJsonUInt(json, "lastInitFailAgeMs",
                  i.lastInitFailMs > 0 ? millis() - i.lastInitFailMs : 0,
                  false);
@@ -242,8 +249,14 @@ footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
       <div class="item"><div class="label">Timeout count</div><div id="imuTimeout" class="value">--</div></div>
       <div class="item"><div class="label">Init fail</div><div id="imuInitFail" class="value">--</div></div>
       <div class="item"><div class="label">Report fail</div><div id="imuReportFail" class="value">--</div></div>
+      <div class="item"><div class="label">Accuracy</div><div id="imuAccuracy" class="value">--</div></div>
+      <div class="item"><div class="label">Report</div><div id="imuReportType" class="value">--</div></div>
+      <div class="item"><div class="label">Consecutive fail</div><div id="imuConsecutiveFail" class="value">--</div></div>
+      <div class="item"><div class="label">Next retry</div><div id="imuNextRetry" class="value">--</div></div>
+      <div class="item"><div class="label">Recoveries</div><div id="imuRecovery" class="value">--</div></div>
       <div class="item"><div class="label">Last reset</div><div id="imuLastReset" class="value">--</div></div>
       <div class="item"><div class="label">Last timeout</div><div id="imuLastTimeout" class="value">--</div></div>
+      <div class="item"><div class="label">Last recovery</div><div id="imuLastRecovery" class="value">--</div></div>
     </div>
   </section>
   <section>
@@ -300,8 +313,14 @@ async function refresh(){
     $('imuTimeout').textContent=d.bno08x.timeoutCount;
     $('imuInitFail').textContent=d.bno08x.initFailCount;
     $('imuReportFail').textContent=d.bno08x.reportFailCount;
+    $('imuAccuracy').textContent=d.bno08x.accuracy;
+    $('imuReportType').textContent=d.bno08x.reportType;
+    $('imuConsecutiveFail').textContent=d.bno08x.consecutiveFailCount;
+    $('imuNextRetry').textContent=age(d.bno08x.nextRetryDelayMs);
+    $('imuRecovery').textContent=d.bno08x.recoveryCount;
     $('imuLastReset').textContent=age(d.bno08x.lastResetAgeMs);
     $('imuLastTimeout').textContent=age(d.bno08x.lastTimeoutAgeMs);
+    $('imuLastRecovery').textContent=age(d.bno08x.lastRecoveryAgeMs);
     $('sdMounted').innerHTML=`<span class="status ${d.sd.mounted?'ok':'bad'}">${d.sd.mounted?'YES':'NO'}</span>`;
     $('sdReady').innerHTML=`<span class="status ${d.sd.fileReady?'ok':'bad'}">${d.sd.fileReady?'YES':'NO'}</span>`;
     $('sdFile').textContent=d.sd.filePath;

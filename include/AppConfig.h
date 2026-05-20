@@ -31,10 +31,15 @@ static constexpr int kBnoSclPin = D5;
 static constexpr int kBnoIntPin = D3;
 static constexpr int kBnoRstPin = D2;
 
-static constexpr uint8_t kBnoAddressPrimary = 0x4A;
-static constexpr uint8_t kBnoAddressAlternate = 0x4B;
+static constexpr uint8_t kBnoI2cAddress = 0x4A;
 static constexpr uint32_t kI2cClockHz = 100000;
 static constexpr uint32_t kBnoReportIntervalUs = 100000;
+static constexpr bool kBnoUseArvrStabilizedReport = false;
+static constexpr uint32_t kBnoNoDataTimeoutMs = 5000;
+static constexpr uint32_t kBnoRetryDelayFastMs = 2000;
+static constexpr uint32_t kBnoRetryDelayMediumMs = 5000;
+static constexpr uint32_t kBnoRetryDelaySlowMs = 10000;
+static constexpr uint32_t kBnoRetryDelayMaxMs = 30000;
 
 // XIAO ESP32S3 Sense microSD SPI wiring.
 // GPIO3 is already used by BNO08X RST, so the old SD fallback CS=GPIO3 is not used here.
@@ -50,8 +55,6 @@ static constexpr const char* kApPassword = "12345678";
 static constexpr uint32_t kSerialReportIntervalMs = 1000;
 static constexpr uint32_t kWebRefreshIntervalMs = 1000;
 static constexpr uint32_t kSystemSampleIntervalMs = 1000;
-static constexpr uint32_t kBnoNoDataTimeoutMs = 3000;
-static constexpr uint32_t kBnoRetryIntervalMs = 2000;
 static constexpr uint32_t kSatelliteKeepaliveMs = 5000;
 
 }  // namespace config

@@ -28,6 +28,10 @@ void printBootMessage() {
   Serial.printf("BNO08X: SDA=D4(GPIO%d) SCL=D5(GPIO%d) INT=D3(GPIO%d) RST=D2(GPIO%d)\n",
                 config::kBnoSdaPin, config::kBnoSclPin, config::kBnoIntPin,
                 config::kBnoRstPin);
+  Serial.printf("BNO08X I2C address: 0x%02X, report: %s\n",
+                config::kBnoI2cAddress,
+                config::kBnoUseArvrStabilizedReport ? "ARVR_STABILIZED_RV"
+                                                     : "GAME_ROTATION_VECTOR");
   Serial.printf("SD: SCK=GPIO%d MISO=GPIO%d MOSI=GPIO%d CS=GPIO%d interval=%lu ms\n",
                 config::kSdSckPin, config::kSdMisoPin, config::kSdMosiPin,
                 config::kSdCsPin,
@@ -77,6 +81,8 @@ void printSerialStatus() {
   Serial.printf("Yaw: %s\n",
                 i.hasOrientation ? String(i.yawDeg, 2).c_str() : "--");
   Serial.printf("UpdateHz: %.1f\n", i.updateHz);
+  Serial.printf("Accuracy: %u\n", i.accuracy);
+  Serial.printf("ReportType: %s\n", i.reportType);
   Serial.printf("ResetCount: %lu\n", static_cast<unsigned long>(i.resetCount));
   Serial.printf("TimeoutCount: %lu\n",
                 static_cast<unsigned long>(i.timeoutCount));
@@ -84,6 +90,12 @@ void printSerialStatus() {
                 static_cast<unsigned long>(i.initFailCount));
   Serial.printf("ReportFailCount: %lu\n",
                 static_cast<unsigned long>(i.reportFailCount));
+  Serial.printf("ConsecutiveFail: %lu\n",
+                static_cast<unsigned long>(i.consecutiveFailCount));
+  Serial.printf("NextRetryDelayMs: %lu\n",
+                static_cast<unsigned long>(i.nextRetryDelayMs));
+  Serial.printf("RecoveryCount: %lu\n",
+                static_cast<unsigned long>(i.recoveryCount));
   Serial.printf("LastResetAgeMs: %lu\n",
                 static_cast<unsigned long>(i.lastResetMs > 0
                                                ? now - i.lastResetMs
@@ -91,6 +103,10 @@ void printSerialStatus() {
   Serial.printf("LastTimeoutAgeMs: %lu\n",
                 static_cast<unsigned long>(i.lastTimeoutMs > 0
                                                ? now - i.lastTimeoutMs
+                                               : 0));
+  Serial.printf("LastRecoveryAgeMs: %lu\n",
+                static_cast<unsigned long>(i.lastRecoveryMs > 0
+                                               ? now - i.lastRecoveryMs
                                                : 0));
 
   Serial.println();

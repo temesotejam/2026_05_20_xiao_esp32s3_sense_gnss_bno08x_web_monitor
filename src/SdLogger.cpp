@@ -114,7 +114,7 @@ bool SdLogger::prepareLogFile() {
 }
 
 void SdLogger::writeHeader() {
-  logFile_.println("# log_format_version,1");
+  logFile_.println("# log_format_version,2");
   logFile_.println("# project,XIAO ESP32S3 Sense GNSS BNO08X Web Monitor");
   logFile_.println("# time/system,gnss,bno08x,imu_diag,future_control");
   logFile_.println(
@@ -125,7 +125,8 @@ void SdLogger::writeHeader() {
       "bno_initialized,bno_has_orientation,bno_roll_deg,bno_pitch_deg,"
       "bno_yaw_deg,bno_update_hz,"
       "bno_reset_count,bno_timeout_count,bno_init_fail_count,"
-      "bno_report_fail_count,"
+      "bno_report_fail_count,bno_accuracy_status,bno_report_type,"
+      "bno_consecutive_fail,bno_next_retry_delay_ms,bno_recovery_count,"
       "system_heap,system_loop_hz,system_wifi_clients,"
       "control_state,control_target_lat,control_target_lon,control_error");
 }
@@ -184,6 +185,16 @@ bool SdLogger::appendRow(const GnssStatus& gnss, const char* fixLabel,
   row += String(imu.initFailCount);
   row += ",";
   row += String(imu.reportFailCount);
+  row += ",";
+  row += String(imu.accuracy);
+  row += ",";
+  appendCsvString(row, imu.reportType);
+  row += ",";
+  row += String(imu.consecutiveFailCount);
+  row += ",";
+  row += String(imu.nextRetryDelayMs);
+  row += ",";
+  row += String(imu.recoveryCount);
   row += ",";
   row += String(system.freeHeap);
   row += ",";
