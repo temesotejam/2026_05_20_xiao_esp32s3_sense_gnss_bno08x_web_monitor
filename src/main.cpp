@@ -150,6 +150,7 @@ void loop() {
   gnss.update();
   imu.update();
   systemMonitor.update();
+  webMonitor.update();
   sdLogger.update(gnss.status(), gnss.fixLabel(), imu.status(),
                   systemMonitor.status());
   printSerialStatus();

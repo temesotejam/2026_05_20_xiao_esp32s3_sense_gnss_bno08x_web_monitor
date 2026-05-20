@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 
 #include "GnssManager.h"
@@ -26,6 +27,7 @@ class WebMonitor {
              SdLogger& sdLogger);
 
   void begin();
+  void update();
   String jsonStatus() const;
 
  private:
@@ -35,5 +37,6 @@ class WebMonitor {
   ImuManager& imu_;
   SystemMonitor& system_;
   SdLogger& sdLogger_;
+  DNSServer dnsServer_;
   AsyncWebServer server_{80};
 };

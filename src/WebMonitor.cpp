@@ -6,6 +6,8 @@
 
 namespace {
 
+constexpr uint16_t kDnsPort = 53;
+
 void appendJsonString(String& out, const char* key, const char* value,
                       bool comma = true) {
   out += "\"";
@@ -59,13 +61,39 @@ WebMonitor::WebMonitor(GnssManager& gnss, ImuManager& imu,
 void WebMonitor::begin() {
   WiFi.mode(WIFI_AP);
   const bool apOk = WiFi.softAP(config::kApSsid, config::kApPassword);
+  const IPAddress apIp = WiFi.softAPIP();
 
   Serial.printf("[WiFi] AP %s: %s\n", apOk ? "started" : "failed",
                 config::kApSsid);
-  Serial.printf("[WiFi] IP: %s\n", WiFi.softAPIP().toString().c_str());
+  Serial.printf("[WiFi] IP: %s\n", apIp.toString().c_str());
+
+  dnsServer_.setErrorReplyCode(DNSReplyCode::NoError);
+  dnsServer_.start(kDnsPort, "*", apIp);
+  Serial.println("[DNS] captive portal DNS started");
 
   server_.on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
     request->send(200, "text/html; charset=utf-8", htmlPage());
+  });
+
+  server_.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("/");
+  });
+
+  server_.on("/hotspot-detect.html", HTTP_GET,
+             [](AsyncWebServerRequest* request) {
+               request->send(200, "text/html; charset=utf-8",
+                             "<!doctype html><html><head><title>XIAO Boat "
+                             "Monitor</title></head><body><a "
+                             "href=\"/\">XIAO Boat Monitor</a></body></html>");
+             });
+
+  server_.on("/connecttest.txt", HTTP_GET,
+             [](AsyncWebServerRequest* request) {
+               request->send(200, "text/plain", "XIAO Boat Monitor");
+             });
+
+  server_.on("/ncsi.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/plain", "XIAO Boat Monitor");
   });
 
   server_.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -76,11 +104,15 @@ void WebMonitor::begin() {
   });
 
   server_.onNotFound([](AsyncWebServerRequest* request) {
-    request->send(404, "text/plain", "Not found");
+    request->redirect("/");
   });
 
   server_.begin();
   Serial.println("[Web] http://192.168.4.1/");
+}
+
+void WebMonitor::update() {
+  dnsServer_.processNextRequest();
 }
 
 String WebMonitor::jsonStatus() const {
