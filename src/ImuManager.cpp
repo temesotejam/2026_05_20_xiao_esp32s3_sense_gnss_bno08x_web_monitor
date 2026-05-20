@@ -7,6 +7,29 @@
 
 ImuManager::ImuManager() : bno_(config::kBnoRstPin) {}
 
+namespace {
+
+bool scanI2cAddress(uint8_t address) {
+  Wire.beginTransmission(address);
+  return Wire.endTransmission() == 0;
+}
+
+void printI2cScanSummary() {
+  bool foundAny = false;
+  Serial.println("[BNO08X] I2C scan:");
+  for (uint8_t address = 1; address < 0x78; ++address) {
+    if (scanI2cAddress(address)) {
+      foundAny = true;
+      Serial.printf("  found 0x%02X\n", address);
+    }
+  }
+  if (!foundAny) {
+    Serial.println("  no I2C devices found");
+  }
+}
+
+}  // namespace
+
 void ImuManager::begin() {
   configurePins();
   initialize("startup");
@@ -60,6 +83,7 @@ bool ImuManager::initialize(const char* reason) {
 
   hardReset();
   configureI2cBus();
+  printI2cScanSummary();
 
   const uint8_t candidateAddresses[] = {
       config::kBnoAddressPrimary,

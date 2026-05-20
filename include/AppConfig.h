@@ -19,16 +19,17 @@ static constexpr const char* kBoardName = "Seeed Studio XIAO ESP32S3 Sense";
 
 static constexpr uint32_t kUsbSerialBaud = 115200;
 
-// GNSS UART wiring requested for this integrated Sense-side project.
+// GNSS UART wiring reused from the working standalone GNSS monitor.
 static constexpr uint32_t kGnssBaud = 115200;
-static constexpr int kGnssRxPin = 0;
-static constexpr int kGnssTxPin = 1;
+static constexpr int kGnssRxPin = 1;
+static constexpr int kGnssTxPin = 0;
 
-// BNO08X wiring. GPIO numbers are used directly to avoid pin-label ambiguity.
-static constexpr int kBnoSdaPin = 4;
-static constexpr int kBnoSclPin = 5;
-static constexpr int kBnoIntPin = 3;
-static constexpr int kBnoRstPin = 2;
+// BNO08X wiring follows the working standalone BNO08X project.
+// On XIAO ESP32S3 in PlatformIO: D4=GPIO5, D5=GPIO6, D3=GPIO4, D2=GPIO3.
+static constexpr int kBnoSdaPin = D4;
+static constexpr int kBnoSclPin = D5;
+static constexpr int kBnoIntPin = D3;
+static constexpr int kBnoRstPin = D2;
 
 static constexpr uint8_t kBnoAddressPrimary = 0x4A;
 static constexpr uint8_t kBnoAddressAlternate = 0x4B;

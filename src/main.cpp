@@ -20,10 +20,10 @@ void printBootMessage() {
   Serial.println("====================================");
   Serial.println(config::kProjectName);
   Serial.printf("Board: %s\n", config::kBoardName);
-  Serial.printf("GNSS UART: RX=GPIO%d TX=GPIO%d @ %lu bps\n",
+  Serial.printf("GNSS UART: MCU RX=GPIO%d MCU TX=GPIO%d @ %lu bps\n",
                 config::kGnssRxPin, config::kGnssTxPin,
                 static_cast<unsigned long>(config::kGnssBaud));
-  Serial.printf("BNO08X: SDA=GPIO%d SCL=GPIO%d INT=GPIO%d RST=GPIO%d\n",
+  Serial.printf("BNO08X: SDA=D4(GPIO%d) SCL=D5(GPIO%d) INT=D3(GPIO%d) RST=D2(GPIO%d)\n",
                 config::kBnoSdaPin, config::kBnoSclPin, config::kBnoIntPin,
                 config::kBnoRstPin);
   Serial.printf("WiFi AP: %s / %s\n", config::kApSsid, config::kApPassword);

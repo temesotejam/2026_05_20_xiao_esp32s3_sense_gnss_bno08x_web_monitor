@@ -38,12 +38,12 @@ framework = arduino
 
 | 機能 | XIAO ESP32S3 GPIO |
 | --- | --- |
-| BNO08X SDA | GPIO4 |
-| BNO08X SCL | GPIO5 |
-| BNO08X INT | GPIO3 |
-| BNO08X RST | GPIO2 |
-| GNSS RX | GPIO0 |
-| GNSS TX | GPIO1 |
+| BNO08X SDA | D4 / GPIO5 |
+| BNO08X SCL | D5 / GPIO6 |
+| BNO08X INT | D3 / GPIO4 |
+| BNO08X RST | D2 / GPIO3 |
+| GNSS MCU RX | GPIO1 |
+| GNSS MCU TX | GPIO0 |
 
 ## 配線図
 
@@ -51,16 +51,16 @@ framework = arduino
 XIAO ESP32S3 Sense        BNO08X
 3V3 -------------------- VCC
 GND -------------------- GND
-GPIO4 ------------------ SDA
-GPIO5 ------------------ SCL
-GPIO3 ------------------ INT
-GPIO2 ------------------ RST
+D4 / GPIO5 ------------- SDA
+D5 / GPIO6 ------------- SCL
+D3 / GPIO4 ------------- INT
+D2 / GPIO3 ------------- RST
 
 XIAO ESP32S3 Sense        GNSS module
 3V3 or 5V -------------- VCC
 GND -------------------- GND
-GPIO0 RX --------------- GNSS TX
-GPIO1 TX --------------- GNSS RX
+GPIO1 MCU RX ----------- GNSS TX
+GPIO0 MCU TX ----------- GNSS RX
 ```
 
 GNSSモジュールの電源電圧は使用モジュールの仕様に合わせてください。
