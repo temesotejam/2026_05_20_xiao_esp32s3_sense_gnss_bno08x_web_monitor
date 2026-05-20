@@ -5,6 +5,7 @@
 
 #include "GnssManager.h"
 #include "ImuManager.h"
+#include "SdLogger.h"
 #include "SystemMonitor.h"
 
 /*
@@ -21,7 +22,8 @@
 
 class WebMonitor {
  public:
-  WebMonitor(GnssManager& gnss, ImuManager& imu, SystemMonitor& system);
+  WebMonitor(GnssManager& gnss, ImuManager& imu, SystemMonitor& system,
+             SdLogger& sdLogger);
 
   void begin();
   String jsonStatus() const;
@@ -32,5 +34,6 @@ class WebMonitor {
   GnssManager& gnss_;
   ImuManager& imu_;
   SystemMonitor& system_;
+  SdLogger& sdLogger_;
   AsyncWebServer server_{80};
 };

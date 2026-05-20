@@ -13,6 +13,7 @@ Seeed Studio XIAO ESP32S3 Senseを、GNSS取得、BNO08X姿勢取得、Webモニ
 - WiFiアクセスポイント作成
 - Web UIによる状態監視
 - `/api/status` JSON API
+- microSD CSVログ
 - GNSS未受信、IMU未接続でもWeb UIを継続
 
 ## 使用ボード
@@ -44,6 +45,10 @@ framework = arduino
 | BNO08X RST | D2 / GPIO3 |
 | GNSS MCU RX | GPIO1 |
 | GNSS MCU TX | GPIO0 |
+| SD SCK | GPIO7 |
+| SD MISO | GPIO8 |
+| SD MOSI | GPIO9 |
+| SD CS | GPIO21 |
 
 ## 配線図
 
@@ -61,6 +66,12 @@ XIAO ESP32S3 Sense        GNSS module
 GND -------------------- GND
 GPIO1 MCU RX ----------- GNSS TX
 GPIO0 MCU TX ----------- GNSS RX
+
+XIAO ESP32S3 Sense        microSD
+GPIO7 ------------------- SCK
+GPIO8 ------------------- MISO
+GPIO9 ------------------- MOSI
+GPIO21 ------------------ CS
 ```
 
 GNSSモジュールの電源電圧は使用モジュールの仕様に合わせてください。
@@ -89,6 +100,7 @@ http://192.168.4.1/
 - GNSS: Fix、衛星数、緯度、経度、速度、進行方向、HDOP
 - BNO08X: Roll、Pitch、Yaw、UpdateHz
 - SYSTEM: millis、free heap、WiFi接続数、loop周期
+- SD Log: mount状態、ファイル名、書き込み行数、エラー数
 - Satellites: 衛星システム、ID、使用中、CNO、仰角、方位角
 
 Webページは1秒周期で自動更新します。
@@ -141,9 +153,56 @@ GET /api/status
     "wifiClients": 1,
     "loopHz": 1000.0
   },
+  "sd": {
+    "mounted": true,
+    "fileReady": true,
+    "csPin": 21,
+    "filePath": "/LOG000.CSV",
+    "lastStatus": "logged",
+    "writeCount": 123,
+    "writeErrorCount": 0,
+    "lastWriteAgeMs": 10,
+    "lastErrorAgeMs": 0
+  },
   "satellites": []
 }
 ```
+
+## SDカードCSVログ
+
+SDカードがマウントできた場合、起動ごとに未使用のファイル名を自動採番します。
+
+```text
+/LOG000.CSV
+/LOG001.CSV
+...
+```
+
+既存ログは上書きしません。ログ周期は初期値1Hzです。
+
+CSVの先頭にはフォーマットバージョンを記録します。
+
+```text
+# log_format_version,1
+# project,XIAO ESP32S3 Sense GNSS BNO08X Web Monitor
+# time/system,gnss,bno08x,imu_diag,future_control
+```
+
+主な列:
+
+```text
+millis,log_seq,
+gnss_fix,gnss_sats,gnss_used_sats,gnss_has_location,
+gnss_lat,gnss_lon,gnss_has_speed,gnss_speed_kmh,
+gnss_has_course,gnss_course_deg,gnss_has_hdop,gnss_hdop,
+bno_initialized,bno_has_orientation,bno_roll_deg,bno_pitch_deg,
+bno_yaw_deg,bno_update_hz,
+bno_reset_count,bno_timeout_count,bno_init_fail_count,bno_report_fail_count,
+system_heap,system_loop_hz,system_wifi_clients,
+control_state,control_target_lat,control_target_lon,control_error
+```
+
+`control_*` は将来の制御状態、目標点、誤差などを追加するための予約列です。
 
 ## シリアルモニタ例
 
@@ -168,6 +227,15 @@ SYSTEM:
 Heap: 200000
 LoopHz: 1000.0
 WiFi Clients: 1
+
+SD:
+Mounted: yes
+FileReady: yes
+File: /LOG000.CSV
+Status: logged
+Rows: 123
+Errors: 0
+LastWriteAgeMs: 10
 ====================================
 ```
 

@@ -36,6 +36,14 @@ static constexpr uint8_t kBnoAddressAlternate = 0x4B;
 static constexpr uint32_t kI2cClockHz = 100000;
 static constexpr uint32_t kBnoReportIntervalUs = 100000;
 
+// XIAO ESP32S3 Sense microSD SPI wiring.
+// GPIO3 is already used by BNO08X RST, so the old SD fallback CS=GPIO3 is not used here.
+static constexpr int kSdSckPin = 7;
+static constexpr int kSdMisoPin = 8;
+static constexpr int kSdMosiPin = 9;
+static constexpr int kSdCsPin = 21;
+static constexpr uint32_t kSdLogIntervalMs = 1000;
+
 static constexpr const char* kApSsid = "XIAO_BOAT_MONITOR";
 static constexpr const char* kApPassword = "12345678";
 

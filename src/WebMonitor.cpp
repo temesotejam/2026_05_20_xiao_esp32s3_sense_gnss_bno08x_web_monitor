@@ -53,8 +53,8 @@ void appendJsonBool(String& out, const char* key, bool value, bool comma = true)
 }  // namespace
 
 WebMonitor::WebMonitor(GnssManager& gnss, ImuManager& imu,
-                       SystemMonitor& system)
-    : gnss_(gnss), imu_(imu), system_(system) {}
+                       SystemMonitor& system, SdLogger& sdLogger)
+    : gnss_(gnss), imu_(imu), system_(system), sdLogger_(sdLogger) {}
 
 void WebMonitor::begin() {
   WiFi.mode(WIFI_AP);
@@ -87,6 +87,7 @@ String WebMonitor::jsonStatus() const {
   const GnssStatus& g = gnss_.status();
   const ImuStatus& i = imu_.status();
   const SystemStatus& s = system_.status();
+  const SdLogStatus& sd = sdLogger_.status();
 
   String json;
   json.reserve(2600);
@@ -133,6 +134,20 @@ String WebMonitor::jsonStatus() const {
   appendJsonUInt(json, "lastInitFailAgeMs",
                  i.lastInitFailMs > 0 ? millis() - i.lastInitFailMs : 0,
                  false);
+  json += "},";
+
+  json += "\"sd\":{";
+  appendJsonBool(json, "mounted", sd.mounted);
+  appendJsonBool(json, "fileReady", sd.fileReady);
+  appendJsonUInt(json, "csPin", sd.csPin >= 0 ? sd.csPin : 0);
+  appendJsonString(json, "filePath", sd.filePath);
+  appendJsonString(json, "lastStatus", sd.lastStatus);
+  appendJsonUInt(json, "writeCount", sd.writeCount);
+  appendJsonUInt(json, "writeErrorCount", sd.writeErrorCount);
+  appendJsonUInt(json, "lastWriteAgeMs",
+                 sd.lastWriteMs > 0 ? millis() - sd.lastWriteMs : 0);
+  appendJsonUInt(json, "lastErrorAgeMs",
+                 sd.lastErrorMs > 0 ? millis() - sd.lastErrorMs : 0, false);
   json += "},";
 
   json += "\"system\":{";
@@ -232,6 +247,19 @@ footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
     </div>
   </section>
   <section>
+    <h2>SD Log</h2>
+    <div class="grid">
+      <div class="item"><div class="label">Mounted</div><div id="sdMounted" class="value">--</div></div>
+      <div class="item"><div class="label">File ready</div><div id="sdReady" class="value">--</div></div>
+      <div class="item"><div class="label">File</div><div id="sdFile" class="value">--</div></div>
+      <div class="item"><div class="label">Status</div><div id="sdStatus" class="value">--</div></div>
+      <div class="item"><div class="label">Rows</div><div id="sdRows" class="value">--</div></div>
+      <div class="item"><div class="label">Errors</div><div id="sdErrors" class="value">--</div></div>
+      <div class="item"><div class="label">Last write</div><div id="sdLastWrite" class="value">--</div></div>
+      <div class="item"><div class="label">Last error</div><div id="sdLastError" class="value">--</div></div>
+    </div>
+  </section>
+  <section>
     <h2>System</h2>
     <div class="grid">
       <div class="item"><div class="label">millis</div><div id="sysMillis" class="value">--</div></div>
@@ -274,6 +302,14 @@ async function refresh(){
     $('imuReportFail').textContent=d.bno08x.reportFailCount;
     $('imuLastReset').textContent=age(d.bno08x.lastResetAgeMs);
     $('imuLastTimeout').textContent=age(d.bno08x.lastTimeoutAgeMs);
+    $('sdMounted').innerHTML=`<span class="status ${d.sd.mounted?'ok':'bad'}">${d.sd.mounted?'YES':'NO'}</span>`;
+    $('sdReady').innerHTML=`<span class="status ${d.sd.fileReady?'ok':'bad'}">${d.sd.fileReady?'YES':'NO'}</span>`;
+    $('sdFile').textContent=d.sd.filePath;
+    $('sdStatus').textContent=d.sd.lastStatus;
+    $('sdRows').textContent=d.sd.writeCount;
+    $('sdErrors').textContent=d.sd.writeErrorCount;
+    $('sdLastWrite').textContent=age(d.sd.lastWriteAgeMs);
+    $('sdLastError').textContent=age(d.sd.lastErrorAgeMs);
     $('sysMillis').textContent=d.system.millis;
     $('sysHeap').textContent=d.system.freeHeap;
     $('sysClients').textContent=d.system.wifiClients;
