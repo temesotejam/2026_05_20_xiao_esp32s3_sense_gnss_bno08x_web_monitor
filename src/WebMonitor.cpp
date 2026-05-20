@@ -240,7 +240,7 @@ String WebMonitor::htmlPage() const {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XIAO Boat Monitor</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'">
 <style>
 :root{color-scheme:dark;--bg:#101418;--panel:#1b2229;--line:#303a44;--text:#eef3f7;--muted:#93a4b1;--ok:#55d68b;--warn:#ffd166;--bad:#ff6b6b;--accent:#62b6ff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -252,7 +252,7 @@ h2{font-size:15px;margin:0 0 12px;color:#cfe5f8}
 .wide{grid-column:1/-1}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.item{min-width:0}.label{color:var(--muted);font-size:12px}.value{font-size:20px;line-height:1.25;word-break:break-word}
 .status{display:inline-block;padding:3px 8px;border-radius:999px;background:#26313b;font-size:13px}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-#map{height:380px;min-height:320px;border:1px solid var(--line);border-radius:8px;background:#0d1115;overflow:hidden}.mapbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px;color:var(--muted);font-size:13px;flex-wrap:wrap}.boatMarker{width:28px;height:28px;border-radius:50%;background:#62b6ff;border:3px solid #eef3f7;box-shadow:0 2px 10px rgba(0,0,0,.45);position:relative}.boatMarker:after{content:"";position:absolute;left:8px;top:-13px;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:12px solid #eef3f7}
+#map{height:380px;min-height:320px;border:1px solid var(--line);border-radius:8px;background:#0d1115;overflow:hidden}.mapbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px;color:var(--muted);font-size:13px;flex-wrap:wrap}.mapbar a{color:var(--accent);text-decoration:none}.boatMarker{width:28px;height:28px;border-radius:50%;background:#62b6ff;border:3px solid #eef3f7;box-shadow:0 2px 10px rgba(0,0,0,.45);position:relative}.boatMarker:after{content:"";position:absolute;left:8px;top:-13px;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:12px solid #eef3f7}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:6px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600}
 footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
 @media(max-width:560px){header{padding:14px}main{padding:10px;grid-template-columns:1fr}.value{font-size:18px}}
@@ -268,7 +268,7 @@ footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
     <h2>Map</h2>
     <div class="mapbar">
       <div id="mapStatus">Waiting for GNSS fix</div>
-      <label><input id="mapFollow" type="checkbox" checked> Follow</label>
+      <div><a id="mapExternal" href="#" target="_blank" rel="noopener">Open map</a> <label><input id="mapFollow" type="checkbox" checked> Follow</label></div>
     </div>
     <div id="map"></div>
   </section>
@@ -336,28 +336,40 @@ footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
   </section>
 </main>
 <footer id="lastUpdate">Waiting for data...</footer>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'"></script>
 <script>
 const $=id=>document.getElementById(id);
 const num=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):"--";
 const age=ms=>ms?`${ms} ms`:"--";
 let map=null, boatMarker=null, trackLine=null, mapReady=false, firstFix=true;
+let tileErrorCount=0;
 const track=[];
+function updateExternalMapLink(lat,lon){
+  $('mapExternal').href=`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`;
+}
 function initMap(){
   if(mapReady||typeof L==='undefined')return;
   map=L.map('map',{zoomControl:true,attributionControl:true}).setView([35.6812,139.7671],15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  const tiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19,
     attribution:'&copy; OpenStreetMap'
-  }).addTo(map);
+  });
+  tiles.on('tileerror',()=>{
+    tileErrorCount++;
+    $('mapStatus').textContent=`Map tile load failed (${tileErrorCount})`;
+  });
+  tiles.addTo(map);
   trackLine=L.polyline([],{color:'#62b6ff',weight:4,opacity:.8}).addTo(map);
   mapReady=true;
   $('mapStatus').textContent='Waiting for GNSS fix';
 }
 function updateMap(gnss){
   initMap();
+  if(gnss.hasLocation){
+    updateExternalMapLink(gnss.latitude,gnss.longitude);
+  }
   if(!mapReady){
-    $('mapStatus').textContent='Map tiles unavailable';
+    $('mapStatus').textContent='Leaflet CDN unavailable. Try the normal browser, not the sign-in window.';
     return;
   }
   if(!gnss.hasLocation){
