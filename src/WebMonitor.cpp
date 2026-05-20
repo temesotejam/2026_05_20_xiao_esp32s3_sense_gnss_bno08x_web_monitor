@@ -240,7 +240,6 @@ String WebMonitor::htmlPage() const {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XIAO Boat Monitor</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'">
 <style>
 :root{color-scheme:dark;--bg:#101418;--panel:#1b2229;--line:#303a44;--text:#eef3f7;--muted:#93a4b1;--ok:#55d68b;--warn:#ffd166;--bad:#ff6b6b;--accent:#62b6ff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -252,7 +251,7 @@ h2{font-size:15px;margin:0 0 12px;color:#cfe5f8}
 .wide{grid-column:1/-1}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.item{min-width:0}.label{color:var(--muted);font-size:12px}.value{font-size:20px;line-height:1.25;word-break:break-word}
 .status{display:inline-block;padding:3px 8px;border-radius:999px;background:#26313b;font-size:13px}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-#map{height:380px;min-height:320px;border:1px solid var(--line);border-radius:8px;background:#0d1115;overflow:hidden}.mapbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px;color:var(--muted);font-size:13px;flex-wrap:wrap}.mapbar a{color:var(--accent);text-decoration:none}.boatMarker{width:28px;height:28px;border-radius:50%;background:#62b6ff;border:3px solid #eef3f7;box-shadow:0 2px 10px rgba(0,0,0,.45);position:relative}.boatMarker:after{content:"";position:absolute;left:8px;top:-13px;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:12px solid #eef3f7}
+#map{width:100%;height:380px;min-height:320px;border:1px solid var(--line);border-radius:8px;background:#0d1115;display:block}.mapbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px;color:var(--muted);font-size:13px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{background:#111820;color:var(--muted);border:0;border-right:1px solid var(--line);padding:8px 10px;font:inherit}.seg button:last-child{border-right:0}.seg button.active{background:#26313b;color:var(--text)}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:6px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600}
 footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
 @media(max-width:560px){header{padding:14px}main{padding:10px;grid-template-columns:1fr}.value{font-size:18px}}
@@ -268,9 +267,9 @@ footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
     <h2>Map</h2>
     <div class="mapbar">
       <div id="mapStatus">Waiting for GNSS fix</div>
-      <div><a id="mapExternal" href="#" target="_blank" rel="noopener">Open map</a> <label><input id="mapFollow" type="checkbox" checked> Follow</label></div>
+      <div class="seg"><button id="mapNorth" class="active" type="button">North Up</button><button id="mapHeading" type="button">Heading Up</button></div>
     </div>
-    <div id="map"></div>
+    <canvas id="map"></canvas>
   </section>
   <section>
     <h2>GNSS</h2>
@@ -336,69 +335,147 @@ footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
   </section>
 </main>
 <footer id="lastUpdate">Waiting for data...</footer>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'"></script>
 <script>
 const $=id=>document.getElementById(id);
 const num=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):"--";
 const age=ms=>ms?`${ms} ms`:"--";
-let map=null, boatMarker=null, trackLine=null, mapReady=false, firstFix=true;
-let tileErrorCount=0;
+let mapMode='north';
+let origin=null;
+let latestSnapshot=null;
 const track=[];
-function updateExternalMapLink(lat,lon){
-  $('mapExternal').href=`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`;
+function normalizeDeg(v){return ((v%360)+360)%360;}
+function headingFrom(d){
+  if(d.bno08x.hasOrientation)return {deg:normalizeDeg(d.bno08x.yaw),src:'IMU yaw'};
+  if(d.gnss.hasCourse)return {deg:normalizeDeg(d.gnss.courseDeg),src:'GNSS course'};
+  return {deg:0,src:'none'};
 }
-function initMap(){
-  if(mapReady||typeof L==='undefined')return;
-  map=L.map('map',{zoomControl:true,attributionControl:true}).setView([35.6812,139.7671],15);
-  const tiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19,
-    attribution:'&copy; OpenStreetMap'
-  });
-  tiles.on('tileerror',()=>{
-    tileErrorCount++;
-    $('mapStatus').textContent=`Map tile load failed (${tileErrorCount})`;
-  });
-  tiles.addTo(map);
-  trackLine=L.polyline([],{color:'#62b6ff',weight:4,opacity:.8}).addTo(map);
-  mapReady=true;
-  $('mapStatus').textContent='Waiting for GNSS fix';
+function metersFromOrigin(lat,lon){
+  const latRad=origin.lat*Math.PI/180;
+  return {
+    x:(lon-origin.lon)*111320*Math.cos(latRad),
+    y:(lat-origin.lat)*110540
+  };
 }
-function updateMap(gnss){
-  initMap();
-  if(gnss.hasLocation){
-    updateExternalMapLink(gnss.latitude,gnss.longitude);
+function rotatePoint(p,deg){
+  if(mapMode==='north')return p;
+  const r=deg*Math.PI/180;
+  return {x:p.x*Math.cos(r)-p.y*Math.sin(r),y:p.x*Math.sin(r)+p.y*Math.cos(r)};
+}
+function setMapMode(mode){
+  mapMode=mode;
+  $('mapNorth').classList.toggle('active',mode==='north');
+  $('mapHeading').classList.toggle('active',mode==='heading');
+  if(latestSnapshot)drawMap(latestSnapshot);
+}
+$('mapNorth').onclick=()=>setMapMode('north');
+$('mapHeading').onclick=()=>setMapMode('heading');
+function drawGrid(ctx,w,h,scale,range){
+  const cx=w/2,cy=h/2;
+  ctx.strokeStyle='#26313b';
+  ctx.lineWidth=1;
+  let step=5;
+  if(range>40)step=10;
+  if(range>100)step=25;
+  if(range>250)step=50;
+  if(range>600)step=100;
+  const maxMeters=Math.ceil(range/step)*step;
+  for(let m=-maxMeters;m<=maxMeters;m+=step){
+    const p=m*scale;
+    ctx.beginPath();ctx.moveTo(cx+p,0);ctx.lineTo(cx+p,h);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,cy+p);ctx.lineTo(w,cy+p);ctx.stroke();
   }
-  if(!mapReady){
-    $('mapStatus').textContent='Leaflet CDN unavailable. Try the normal browser, not the sign-in window.';
-    return;
+  ctx.fillStyle='#93a4b1';
+  ctx.font='12px system-ui';
+  ctx.fillText(`${step} m grid`,12,h-12);
+}
+function drawBoat(ctx,cx,cy,headingDeg){
+  const r=headingDeg*Math.PI/180;
+  const pts=[[0,-18],[11,14],[0,8],[-11,14]];
+  ctx.beginPath();
+  pts.forEach((p,i)=>{
+    const x=p[0]*Math.cos(r)-p[1]*Math.sin(r);
+    const y=p[0]*Math.sin(r)+p[1]*Math.cos(r);
+    if(i===0)ctx.moveTo(cx+x,cy+y);else ctx.lineTo(cx+x,cy+y);
+  });
+  ctx.closePath();
+  ctx.fillStyle='#62b6ff';
+  ctx.strokeStyle='#eef3f7';
+  ctx.lineWidth=2;
+  ctx.fill();ctx.stroke();
+}
+function drawNorthArrow(ctx,w){
+  ctx.save();
+  ctx.translate(w-28,30);
+  ctx.fillStyle='#eef3f7';
+  ctx.font='12px system-ui';
+  ctx.textAlign='center';
+  ctx.fillText('N',0,-14);
+  ctx.beginPath();
+  ctx.moveTo(0,-8);ctx.lineTo(7,10);ctx.lineTo(0,6);ctx.lineTo(-7,10);
+  ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+function drawMap(d){
+  latestSnapshot=d;
+  const c=$('map'),ctx=c.getContext('2d');
+  const rect=c.getBoundingClientRect();
+  const ratio=window.devicePixelRatio||1;
+  const w=Math.max(280,Math.floor(rect.width));
+  const h=Math.max(320,Math.floor(rect.height));
+  if(c.width!==Math.floor(w*ratio)||c.height!==Math.floor(h*ratio)){
+    c.width=Math.floor(w*ratio);c.height=Math.floor(h*ratio);
   }
-  if(!gnss.hasLocation){
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#0d1115';
+  ctx.fillRect(0,0,w,h);
+  if(!d.gnss.hasLocation){
     $('mapStatus').textContent='Waiting for GNSS fix';
+    ctx.fillStyle='#93a4b1';
+    ctx.font='16px system-ui';
+    ctx.textAlign='center';
+    ctx.fillText('Waiting for GNSS fix',w/2,h/2);
     return;
   }
-  const lat=gnss.latitude, lon=gnss.longitude;
-  const pos=[lat,lon];
-  track.push(pos);
-  if(track.length>300)track.shift();
-  const heading=gnss.hasCourse?gnss.courseDeg:0;
-  const icon=L.divIcon({
-    className:'',
-    html:`<div class="boatMarker" style="transform:rotate(${heading}deg)"></div>`,
-    iconSize:[28,28],
-    iconAnchor:[14,14]
+  if(!origin)origin={lat:d.gnss.latitude,lon:d.gnss.longitude};
+  const now=metersFromOrigin(d.gnss.latitude,d.gnss.longitude);
+  track.push(now);
+  if(track.length>600)track.shift();
+  const heading=headingFrom(d);
+  const centered=track.map(p=>({x:p.x-now.x,y:p.y-now.y}));
+  const rotated=centered.map(p=>rotatePoint(p,heading.deg));
+  let range=20;
+  rotated.forEach(p=>{range=Math.max(range,Math.abs(p.x),Math.abs(p.y));});
+  const scale=Math.min(w,h)*0.43/range;
+  const cx=w/2,cy=h/2;
+  drawGrid(ctx,w,h,scale,range);
+  drawNorthArrow(ctx,w);
+  ctx.strokeStyle='#62b6ff';
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  rotated.forEach((p,i)=>{
+    const x=cx+p.x*scale;
+    const y=cy-p.y*scale;
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
   });
-  if(!boatMarker){
-    boatMarker=L.marker(pos,{icon}).addTo(map);
+  ctx.stroke();
+  const boatScreenHeading=mapMode==='north'?heading.deg:0;
+  drawBoat(ctx,cx,cy,boatScreenHeading);
+  ctx.fillStyle='#eef3f7';
+  ctx.font='13px system-ui';
+  ctx.textAlign='left';
+  ctx.fillText(`Mode: ${mapMode==='north'?'North Up':'Heading Up'}`,12,20);
+  ctx.fillText(`Heading: ${num(heading.deg,1)} deg (${heading.src})`,12,40);
+  ctx.fillText(`Origin: ${num(origin.lat,6)}, ${num(origin.lon,6)}`,12,60);
+  $('mapStatus').textContent=`${num(d.gnss.latitude,7)}, ${num(d.gnss.longitude,7)} / ${track.length} pts / ${mapMode==='north'?'north up':'heading up'}`;
+}
+function updateMap(d){
+  if(d.gnss.hasLocation){
+    drawMap(d);
   }else{
-    boatMarker.setLatLng(pos);
-    boatMarker.setIcon(icon);
+    latestSnapshot=d;
+    drawMap(d);
   }
-  trackLine.setLatLngs(track);
-  if(firstFix||$('mapFollow').checked){
-    map.setView(pos, firstFix?17:map.getZoom());
-    firstFix=false;
-  }
-  $('mapStatus').textContent=`${num(lat,7)}, ${num(lon,7)} / track ${track.length}`;
 }
 async function refresh(){
   try{
@@ -412,7 +489,7 @@ async function refresh(){
     $('gnssCourse').textContent=d.gnss.hasCourse?`${num(d.gnss.courseDeg,1)} deg`:'--';
     $('gnssHdop').textContent=d.gnss.hasHdop?num(d.gnss.hdop,2):'--';
     $('gnssAge').textContent=age(d.gnss.lastSentenceAgeMs);
-    updateMap(d.gnss);
+    updateMap(d);
     $('imuStatus').innerHTML=`<span class="status ${d.bno08x.initialized?'ok':'bad'}">${d.bno08x.initialized?'OK':'OFFLINE'}</span>`;
     $('imuHz').textContent=num(d.bno08x.updateHz,1);
     $('imuRoll').textContent=d.bno08x.hasOrientation?`${num(d.bno08x.roll,2)} deg`:'--';

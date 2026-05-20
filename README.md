@@ -342,10 +342,16 @@ SenseとBNO08Xの両方が同時に電源投入されたログを確認できま
 
 ## Web UI地図表示
 
-Web UIはLeafletとOpenStreetMapの地図タイルを使って、GNSSの現在位置を
-地図上に表示します。モバイルデータや別回線でインターネットへ到達
-できる端末では、地図背景、現在位置マーカー、GNSS軌跡を確認できます。
+Web UIは外部地図タイルを使わないオフライン簡易マップを表示します。
+GNSSの最初のFix地点を原点として、現在位置と軌跡を相対メートル座標で
+Canvasに描画します。
 
-XIAOのAPだけに接続していてインターネットへ出られない場合、地図タイルや
-Leaflet CDNを読み込めないため地図背景は表示されません。その場合でも
-GNSS数値、BNO08X、SD、SYSTEM表示は継続します。
+表示モード:
+
+- `North Up`: 画面上を北に固定します。
+- `Heading Up`: IMU YawまたはGNSS Courseを使って進行/機体方向を上にします。
+
+HeadingはBNO08Xの姿勢が有効な場合はIMU Yawを優先し、IMUが未接続または
+姿勢未取得の場合はGNSS Courseを使います。現在のBNO08X設定は
+`GAME_ROTATION_VECTOR` のため、IMU Yawは磁北基準ではなく起動時姿勢からの
+相対方位として扱います。
