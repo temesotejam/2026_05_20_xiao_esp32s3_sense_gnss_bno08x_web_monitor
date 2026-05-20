@@ -33,6 +33,10 @@ static constexpr int kBnoRstPin = D2;
 
 static constexpr uint8_t kBnoI2cAddress = 0x4A;
 static constexpr uint32_t kI2cClockHz = 100000;
+static constexpr uint32_t kBnoPowerOnSettleMs = 1500;
+static constexpr uint32_t kBnoResetLowMs = 10;
+static constexpr uint32_t kBnoPostResetMs = 300;
+static constexpr uint32_t kBnoI2cPostBeginDelayMs = 10;
 static constexpr uint32_t kBnoReportIntervalUs = 100000;
 static constexpr bool kBnoUseArvrStabilizedReport = false;
 static constexpr uint32_t kBnoNoDataTimeoutMs = 5000;

@@ -23,6 +23,9 @@ const char* orientationReportName() {
 
 void ImuManager::begin() {
   configurePins();
+  Serial.printf("[BNO08X] power-on settle %lu ms\n",
+                static_cast<unsigned long>(config::kBnoPowerOnSettleMs));
+  delay(config::kBnoPowerOnSettleMs);
   initialize("startup");
 }
 
@@ -62,13 +65,20 @@ void ImuManager::configurePins() {
 void ImuManager::configureI2cBus() {
   Wire.begin(config::kBnoSdaPin, config::kBnoSclPin);
   Wire.setClock(config::kI2cClockHz);
+  delay(config::kBnoI2cPostBeginDelayMs);
+  Serial.printf("[BNO08X] I2C begin SDA=GPIO%d SCL=GPIO%d clock=%lu\n",
+                config::kBnoSdaPin, config::kBnoSclPin,
+                static_cast<unsigned long>(config::kI2cClockHz));
 }
 
 void ImuManager::hardReset() {
+  Serial.printf("[BNO08X] hardware reset LOW %lu ms, settle %lu ms\n",
+                static_cast<unsigned long>(config::kBnoResetLowMs),
+                static_cast<unsigned long>(config::kBnoPostResetMs));
   digitalWrite(config::kBnoRstPin, LOW);
-  delay(10);
+  delay(config::kBnoResetLowMs);
   digitalWrite(config::kBnoRstPin, HIGH);
-  delay(300);
+  delay(config::kBnoPostResetMs);
 }
 
 bool ImuManager::initialize(const char* reason) {
@@ -108,7 +118,22 @@ bool ImuManager::initialize(const char* reason) {
 
 bool ImuManager::enableReports() {
   status_.reportType = orientationReportName();
-  return bno_.enableReport(orientationReportType(), config::kBnoReportIntervalUs);
+  const bool orientationOk =
+      bno_.enableReport(orientationReportType(), config::kBnoReportIntervalUs);
+  const bool gyroOk =
+      bno_.enableReport(SH2_GYROSCOPE_CALIBRATED,
+                        config::kBnoReportIntervalUs);
+  const bool accelOk =
+      bno_.enableReport(SH2_ACCELEROMETER, config::kBnoReportIntervalUs);
+
+  Serial.printf("[BNO08X] enable %s: %s\n", status_.reportType,
+                orientationOk ? "OK" : "FAILED");
+  Serial.printf("[BNO08X] enable GYROSCOPE_CALIBRATED: %s\n",
+                gyroOk ? "OK" : "FAILED");
+  Serial.printf("[BNO08X] enable ACCELEROMETER: %s\n",
+                accelOk ? "OK" : "FAILED");
+
+  return orientationOk && gyroOk && accelOk;
 }
 
 void ImuManager::handleSensorEvent(const sh2_SensorValue_t& event) {
