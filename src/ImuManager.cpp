@@ -39,7 +39,13 @@ void ImuManager::update() {
   if (status_.initialized) {
     if (bno_.wasReset()) {
       Serial.println("[BNO08X] device reset detected");
+      ++status_.resetCount;
+      status_.lastResetMs = millis();
       status_.initialized = enableReports();
+      if (!status_.initialized) {
+        ++status_.reportFailCount;
+        status_.lastReportFailMs = status_.lastResetMs;
+      }
     }
 
     for (int i = 0; i < 16; ++i) {
@@ -106,6 +112,8 @@ bool ImuManager::initialize(const char* reason) {
   }
 
   Serial.println("[BNO08X] not found; system continues without IMU");
+  ++status_.initFailCount;
+  status_.lastInitFailMs = millis();
   return false;
 }
 
@@ -155,6 +163,8 @@ void ImuManager::recoverIfNeeded() {
     if (status_.lastEventMs != 0 &&
         now - status_.lastEventMs > config::kBnoNoDataTimeoutMs) {
       Serial.println("[BNO08X] timeout; reinitializing");
+      ++status_.timeoutCount;
+      status_.lastTimeoutMs = now;
       lastRetryMs_ = now;
       initialize("sensor timeout");
     }

@@ -121,7 +121,18 @@ String WebMonitor::jsonStatus() const {
   appendJsonNumber(json, "yaw", i.yawDeg, 2);
   appendJsonNumber(json, "updateHz", i.updateHz, 1);
   appendJsonUInt(json, "lastEventAgeMs",
-                 i.lastEventMs > 0 ? millis() - i.lastEventMs : 0, false);
+                 i.lastEventMs > 0 ? millis() - i.lastEventMs : 0);
+  appendJsonUInt(json, "resetCount", i.resetCount);
+  appendJsonUInt(json, "timeoutCount", i.timeoutCount);
+  appendJsonUInt(json, "initFailCount", i.initFailCount);
+  appendJsonUInt(json, "reportFailCount", i.reportFailCount);
+  appendJsonUInt(json, "lastResetAgeMs",
+                 i.lastResetMs > 0 ? millis() - i.lastResetMs : 0);
+  appendJsonUInt(json, "lastTimeoutAgeMs",
+                 i.lastTimeoutMs > 0 ? millis() - i.lastTimeoutMs : 0);
+  appendJsonUInt(json, "lastInitFailAgeMs",
+                 i.lastInitFailMs > 0 ? millis() - i.lastInitFailMs : 0,
+                 false);
   json += "},";
 
   json += "\"system\":{";
@@ -212,6 +223,12 @@ footer{padding:0 14px 14px;color:var(--muted);font-size:12px}
       <div class="item"><div class="label">Pitch</div><div id="imuPitch" class="value">--</div></div>
       <div class="item"><div class="label">Yaw</div><div id="imuYaw" class="value">--</div></div>
       <div class="item"><div class="label">Data age</div><div id="imuAge" class="value">--</div></div>
+      <div class="item"><div class="label">Reset count</div><div id="imuReset" class="value">--</div></div>
+      <div class="item"><div class="label">Timeout count</div><div id="imuTimeout" class="value">--</div></div>
+      <div class="item"><div class="label">Init fail</div><div id="imuInitFail" class="value">--</div></div>
+      <div class="item"><div class="label">Report fail</div><div id="imuReportFail" class="value">--</div></div>
+      <div class="item"><div class="label">Last reset</div><div id="imuLastReset" class="value">--</div></div>
+      <div class="item"><div class="label">Last timeout</div><div id="imuLastTimeout" class="value">--</div></div>
     </div>
   </section>
   <section>
@@ -251,6 +268,12 @@ async function refresh(){
     $('imuPitch').textContent=d.bno08x.hasOrientation?`${num(d.bno08x.pitch,2)} deg`:'--';
     $('imuYaw').textContent=d.bno08x.hasOrientation?`${num(d.bno08x.yaw,2)} deg`:'--';
     $('imuAge').textContent=age(d.bno08x.lastEventAgeMs);
+    $('imuReset').textContent=d.bno08x.resetCount;
+    $('imuTimeout').textContent=d.bno08x.timeoutCount;
+    $('imuInitFail').textContent=d.bno08x.initFailCount;
+    $('imuReportFail').textContent=d.bno08x.reportFailCount;
+    $('imuLastReset').textContent=age(d.bno08x.lastResetAgeMs);
+    $('imuLastTimeout').textContent=age(d.bno08x.lastTimeoutAgeMs);
     $('sysMillis').textContent=d.system.millis;
     $('sysHeap').textContent=d.system.freeHeap;
     $('sysClients').textContent=d.system.wifiClients;

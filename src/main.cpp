@@ -70,6 +70,21 @@ void printSerialStatus() {
   Serial.printf("Yaw: %s\n",
                 i.hasOrientation ? String(i.yawDeg, 2).c_str() : "--");
   Serial.printf("UpdateHz: %.1f\n", i.updateHz);
+  Serial.printf("ResetCount: %lu\n", static_cast<unsigned long>(i.resetCount));
+  Serial.printf("TimeoutCount: %lu\n",
+                static_cast<unsigned long>(i.timeoutCount));
+  Serial.printf("InitFailCount: %lu\n",
+                static_cast<unsigned long>(i.initFailCount));
+  Serial.printf("ReportFailCount: %lu\n",
+                static_cast<unsigned long>(i.reportFailCount));
+  Serial.printf("LastResetAgeMs: %lu\n",
+                static_cast<unsigned long>(i.lastResetMs > 0
+                                               ? now - i.lastResetMs
+                                               : 0));
+  Serial.printf("LastTimeoutAgeMs: %lu\n",
+                static_cast<unsigned long>(i.lastTimeoutMs > 0
+                                               ? now - i.lastTimeoutMs
+                                               : 0));
 
   Serial.println();
   Serial.println("SYSTEM:");

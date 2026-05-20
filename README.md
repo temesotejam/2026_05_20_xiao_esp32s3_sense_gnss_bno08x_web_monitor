@@ -127,7 +127,13 @@ GET /api/status
     "roll": 0.00,
     "pitch": 0.00,
     "yaw": 0.00,
-    "updateHz": 10.0
+    "updateHz": 10.0,
+    "resetCount": 0,
+    "timeoutCount": 0,
+    "initFailCount": 0,
+    "reportFailCount": 0,
+    "lastResetAgeMs": 0,
+    "lastTimeoutAgeMs": 0
   },
   "system": {
     "millis": 123456,

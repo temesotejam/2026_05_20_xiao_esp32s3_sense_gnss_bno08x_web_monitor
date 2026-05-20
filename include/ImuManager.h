@@ -26,6 +26,14 @@ struct ImuStatus {
   float updateHz = 0.0f;
   uint32_t lastEventMs = 0;
   uint32_t eventCount = 0;
+  uint32_t resetCount = 0;
+  uint32_t timeoutCount = 0;
+  uint32_t initFailCount = 0;
+  uint32_t reportFailCount = 0;
+  uint32_t lastResetMs = 0;
+  uint32_t lastTimeoutMs = 0;
+  uint32_t lastInitFailMs = 0;
+  uint32_t lastReportFailMs = 0;
 };
 
 class ImuManager {
